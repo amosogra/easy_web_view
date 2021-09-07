@@ -1,5 +1,6 @@
 import 'package:easy_web_view/easy_web_view.dart';
 import 'package:flutter/material.dart';
+import 'dart:js' as js;
 
 class HomeScreen extends StatefulWidget {
   @override
@@ -13,7 +14,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static ValueKey key = ValueKey('key_0');
   static ValueKey key2 = ValueKey('key_1');
   static ValueKey key3 = ValueKey('key_2');
-  bool _isHtml = false;
+  bool _isHtml = true;
   bool _blockNavigation = false;
   bool _isMarkdown = false;
   bool _useWidgets = false;
@@ -24,23 +25,30 @@ class _HomeScreenState extends State<HomeScreen> {
   bool open = false;
 
   @override
+  void initState() {
+    super.initState();
+    src = htmlContent;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text('Easy Web View'),
-          leading: IconButton(
-            icon: Icon(Icons.access_time),
-            onPressed: () {
-              setState(() {
-                print("Click!");
-                open = !open;
-              });
-            },
+      appBar: AppBar(
+        title: Text('Easy Web View'),
+        leading: IconButton(
+          icon: Icon(Icons.access_time),
+          onPressed: () {
+            setState(() {
+              print("Click!");
+              open = !open;
+            });
+          },
 
-            //tooltip: "Menu",
-          ),
-          actions: <Widget>[
-            Builder(builder: (context) {
+          //tooltip: "Menu",
+        ),
+        actions: <Widget>[
+          Builder(
+            builder: (context) {
               return IconButton(
                 icon: Icon(_editing ? Icons.close : Icons.settings),
                 onPressed: () {
@@ -50,183 +58,250 @@ class _HomeScreenState extends State<HomeScreen> {
                     });
                 },
               );
-            }),
-          ],
-        ),
-        body: _editing
-            ? SingleChildScrollView(
-                child: Column(
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.cloud_circle),
+            onPressed: () {
+              js.context.callMethod('alertMessage', ['Flutter is calling upon JavaScript!']);
+              js.context.callMethod('logger', ['This is some flutter state.']);
+            },
+          ),
+        ],
+      ),
+      body: _editing
+          ? SingleChildScrollView(
+              child: Column(
+                children: <Widget>[
+                  SwitchListTile(
+                    title: Text('Html Content'),
+                    value: _isHtml,
+                    onChanged: (val) {
+                      if (mounted)
+                        setState(() {
+                          _isHtml = val;
+                          if (val) {
+                            _isMarkdown = false;
+                            src = htmlContent;
+                          } else {
+                            src = url;
+                          }
+                        });
+                    },
+                  ),
+                  SwitchListTile(
+                    title: Text('Block Html Navigation'),
+                    value: _blockNavigation,
+                    onChanged: (val) {
+                      if (mounted)
+                        setState(() {
+                          _blockNavigation = val;
+                        });
+                    },
+                  ),
+                  SwitchListTile(
+                    title: Text('Markdown Content'),
+                    value: _isMarkdown,
+                    onChanged: (val) {
+                      if (mounted)
+                        setState(() {
+                          _isMarkdown = val;
+                          if (val) {
+                            _isHtml = false;
+                            src = markdownContent;
+                          } else {
+                            src = url;
+                          }
+                        });
+                    },
+                  ),
+                  SwitchListTile(
+                    title: Text('Use Widgets'),
+                    value: _useWidgets,
+                    onChanged: (val) {
+                      if (mounted)
+                        setState(() {
+                          _useWidgets = val;
+                        });
+                    },
+                  ),
+                  SwitchListTile(
+                    title: Text('Selectable Text'),
+                    value: _isSelectable,
+                    onChanged: (val) {
+                      if (mounted)
+                        setState(() {
+                          _isSelectable = val;
+                        });
+                    },
+                  ),
+                  SwitchListTile(
+                    title: Text('Show Summernote'),
+                    value: _showSummernote,
+                    onChanged: (val) {
+                      if (mounted)
+                        setState(() {
+                          _showSummernote = val;
+                          if (val) {
+                            _isMarkdown = false;
+                            _isHtml = true;
+                            src = summernoteHtml;
+                          } else {
+                            src = url;
+                          }
+                        });
+                    },
+                  ),
+                ],
+              ),
+            )
+          : Stack(
+              children: <Widget>[
+                Row(
                   children: <Widget>[
-                    SwitchListTile(
-                      title: Text('Html Content'),
-                      value: _isHtml,
-                      onChanged: (val) {
-                        if (mounted)
-                          setState(() {
-                            _isHtml = val;
-                            if (val) {
-                              _isMarkdown = false;
-                              src = htmlContent;
-                            } else {
-                              src = url;
-                            }
-                          });
-                      },
+                    Expanded(
+                      flex: 1,
+                      child: EasyWebView(
+                        src: src,
+                        onLoaded: () {
+                          print('$key: Loaded: $src');
+                        },
+                        isHtml: _isHtml,
+                        isMarkdown: _isMarkdown,
+                        convertToWidgets: _useWidgets,
+                        key: key,
+                        widgetsTextSelectable: _isSelectable,
+                        webNavigationDelegate: (_) => _blockNavigation ? WebNavigationDecision.prevent : WebNavigationDecision.navigate,
+                        crossWindowEvents: [
+                          CrossWindowEvent(
+                            name: 'Print',
+                            eventAction: (eventMessage) {
+                              print('Event message: $eventMessage');
+                            },
+                          ),
+                        ],
+                        // width: 100,
+                        // height: 100,
+                      ),
                     ),
-                    SwitchListTile(
-                      title: Text('Block Html Navigation'),
-                      value: _blockNavigation,
-                      onChanged: (val) {
-                        if (mounted)
-                          setState(() {
-                            _blockNavigation = val;
-                          });
-                      },
-                    ),
-                    SwitchListTile(
-                      title: Text('Markdown Content'),
-                      value: _isMarkdown,
-                      onChanged: (val) {
-                        if (mounted)
-                          setState(() {
-                            _isMarkdown = val;
-                            if (val) {
-                              _isHtml = false;
-                              src = markdownContent;
-                            } else {
-                              src = url;
-                            }
-                          });
-                      },
-                    ),
-                    SwitchListTile(
-                      title: Text('Use Widgets'),
-                      value: _useWidgets,
-                      onChanged: (val) {
-                        if (mounted)
-                          setState(() {
-                            _useWidgets = val;
-                          });
-                      },
-                    ),
-                    SwitchListTile(
-                      title: Text('Selectable Text'),
-                      value: _isSelectable,
-                      onChanged: (val) {
-                        if (mounted)
-                          setState(() {
-                            _isSelectable = val;
-                          });
-                      },
-                    ),
-                    SwitchListTile(
-                      title: Text('Show Summernote'),
-                      value: _showSummernote,
-                      onChanged: (val) {
-                        if (mounted)
-                          setState(() {
-                            _showSummernote = val;
-                            if (val) {
-                              _isMarkdown = false;
-                              _isHtml = true;
-                              src = summernoteHtml;
-                            } else {
-                              src = url;
-                            }
-                          });
-                      },
-                    ),
+                    /*  Expanded(
+                      flex: 1,
+                      child: EasyWebView(
+                        onLoaded: () {
+                          print('$key2: Loaded: $src2');
+                        },
+                        src: src2,
+                        isHtml: _isHtml,
+                        isMarkdown: _isMarkdown,
+                        convertToWidgets: _useWidgets,
+                        widgetsTextSelectable: _isSelectable,
+                        key: key2,
+                        webNavigationDelegate: (_) => _blockNavigation ? WebNavigationDecision.prevent : WebNavigationDecision.navigate,
+                        // width: 100,
+                        // height: 100,
+                      ),
+                    ), */
                   ],
                 ),
-              )
-            : Stack(
-                children: <Widget>[
-                  Row(
-                    children: <Widget>[
-                      Expanded(
-                          flex: 1,
-                          child: EasyWebView(
-                            src: src,
+                Column(
+                  children: <Widget>[
+                    Expanded(
+                      flex: 3,
+                      child: Container(),
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: Container(
+                        width: (open) ? 500 : 0,
+                        child: EasyWebView(
+                            src: src3,
                             onLoaded: () {
-                              print('$key: Loaded: $src');
+                              print('$key3: Loaded: $src3');
                             },
                             isHtml: _isHtml,
                             isMarkdown: _isMarkdown,
                             convertToWidgets: _useWidgets,
-                            key: key,
                             widgetsTextSelectable: _isSelectable,
-                            webNavigationDelegate: (_) => _blockNavigation ? WebNavigationDecision.prevent : WebNavigationDecision.navigate,
-                            crossWindowEvents: [
-                              CrossWindowEvent(
-                                  name: 'Test',
-                                  eventAction: (eventMessage) {
-                                    print('Event message: $eventMessage');
-                                  }),
-                            ],
+                            key: key3
                             // width: 100,
                             // height: 100,
-                          )),
-                      Expanded(
-                        flex: 1,
-                        child: EasyWebView(
-                          onLoaded: () {
-                            print('$key2: Loaded: $src2');
-                          },
-                          src: src2,
-                          isHtml: _isHtml,
-                          isMarkdown: _isMarkdown,
-                          convertToWidgets: _useWidgets,
-                          widgetsTextSelectable: _isSelectable,
-                          key: key2,
-                          webNavigationDelegate: (_) => _blockNavigation ? WebNavigationDecision.prevent : WebNavigationDecision.navigate,
-                          // width: 100,
-                          // height: 100,
-                        ),
+                            ),
                       ),
-                    ],
-                  ),
-                  Column(
-                    children: <Widget>[
-                      Expanded(
-                        flex: 3,
-                        child: Container(),
-                      ),
-                      Expanded(
-                          flex: 1,
-                          child: Container(
-                            width: (open) ? 500 : 0,
-                            child: EasyWebView(
-                                src: src3,
-                                onLoaded: () {
-                                  print('$key3: Loaded: $src3');
-                                },
-                                isHtml: _isHtml,
-                                isMarkdown: _isMarkdown,
-                                convertToWidgets: _useWidgets,
-                                widgetsTextSelectable: _isSelectable,
-                                key: key3
-                                // width: 100,
-                                // height: 100,
-                                ),
-                          )),
-                    ],
-                  )
-                ],
-              ));
+                    ),
+                  ],
+                )
+              ],
+            ),
+    );
   }
 
-  String get htmlContent => """
-<!DOCTYPE html>
-<html>
+  String get htmlContent => """<!DOCTYPE html>
+<html lang="en">
+
 <head>
-<title>Page Title</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Online Payment</title>
 </head>
+
 <body>
-<h1>This is a Heading</h1>
-<p>This is a paragraph.</p>
+
+    <form>
+        <script src="https://checkout.flutterwave.com/v3.js"></script>  
+        
+    </form>
+
+    <script>
+        window.onload = function (){
+          //makePayment();
+          xFind("HAHAHAHAHA!!!");
+        }
+
+        function xFind(xvalue) {
+            if (window.parent !== "undefined") {
+                //console.log(data);
+                window.parent.postMessage(xvalue, "*");
+
+            } else {
+                console.debug('not running inside a Flutter webview');
+            }
+        }
+
+        function makePayment() {
+            FlutterwaveCheckout({
+                public_key: "FLWPUBK_TEST-3494ab2369da08135c147220937ad2aa-X",
+                tx_ref: "RX1",
+                amount: 100,
+                currency: "NGN",
+                country: "NG",
+                payment_options: " ",
+                customer: {
+                    email: "amosogra@gmail.com",
+                    phone_number: "08138193856",
+                    name: "Flutterwave Developers",
+                },
+                callback: function (data) { // specified callback function
+                    if (window.parent !== "undefined") {
+                        console.log(data);
+                        window.parent.postMessage(data, "*");
+                        
+                    } else {
+                        console.debug('not running inside a Flutter webview');
+                    }
+                    //console.log(data);
+                },
+                customizations: {
+                    title: "Maxitag Limited",
+                    description: "Payment for items in cart",
+                    logo: "https://firebasestorage.googleapis.com/v0/b/maxitag-662fa.appspot.com/o/ic_launcher-playstore.png?alt=media&token=bced2549-42a3-478b-abf8-7f05ad196104",
+                },
+            });
+        }
+    </script>
+
 </body>
-</html>
-""";
+
+</html>""";
 
   String get markdownContent => """
 # This is a heading
@@ -253,6 +328,19 @@ This is a paragraph
     <script src="https://code.jquery.com/jquery-3.4.1.slim.min.js" integrity="sha384-J6qa4849blE2+poT4WnyKhv5vZF5SrPo0iEjwBvKU7imGFAV0wwj1yYfoRSJoZ+n" crossorigin="anonymous"></script>
     <link href="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/summernote@0.8.18/dist/summernote-lite.min.js"></script>
+    <script>
+function alertMessage(text) {
+    alert(text)
+}
+
+window.state = {
+    hello: 'world'
+}
+
+window.logger = (flutter_value) => {
+   console.log({ js_context: this, flutter_value });
+}
+</script>
   </head>
   <body>
     <div id="summernote"></div>
@@ -265,9 +353,15 @@ This is a paragraph
           onChange: function() {
             \$('#html-content').text(\$('#summernote').summernote('code'));
             
-            window.parent.postMessage(\$('#summernote').summernote('code'), '*');
-            if (window.Test != null) {
-              window.Test.postMessage(\$('#summernote').summernote('code'));
+            //window.parent.postMessage(\$('#summernote').summernote('code'), '*');
+            if (window.parent !== undefined) {
+              console.log("Hmmmmm");
+              logger(state['hello']);
+              parent.postMessage("okay na!", '*');
+              //parent.postMessage('Print', '*');
+              //window.Test.postMessage("Gooooooon");                       
+              //window.Test.postMessage(\$('#summernote').summernote('code'));
+              //window.Test.postMessage("Heyyyyyyyy");
             }
           }
         },
