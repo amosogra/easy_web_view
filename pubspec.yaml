@@ -1,6 +1,6 @@
 name: easy_web_view
 description: A super simple webview for Flutter Web and Mobile
-version: 1.5.0
+version: 1.6.0
 homepage: https://github.com/rodydavis/easy_web_view
 repository: https://github.com/rodydavis/plugins
 maintainer: Rody Davis (@rodydavis)
@@ -16,6 +16,9 @@ dependencies:
   html2md: ^1.2.5
   url_launcher: ^6.0.9
   http: ^0.13.3
+  pointer_interceptor: ^0.9.0+1
+  uuid: ^3.0.4
+  lint: ^1.5.3
   permission_handler: ^8.1.4+2
 
 dev_dependencies:

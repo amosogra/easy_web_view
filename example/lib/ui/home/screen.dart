@@ -1,4 +1,9 @@
 import 'package:easy_web_view/easy_web_view.dart';
+import 'package:easy_web_view/src/controller/interface.dart';
+import 'package:easy_web_view/src/utils/source_type.dart';
+import 'package:easy_web_view/src/utils/embedded_js_content.dart';
+import 'package:easy_web_view/src/utils/web_specific_params.dart';
+import 'package:example/ui/helpers.dart';
 import 'package:flutter/material.dart';
 import 'dart:js' as js;
 
@@ -24,10 +29,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   bool open = false;
 
+  final executeJsErrorMessage = 'Failed to execute this task because the current content is (probably) URL that allows iframe embedding, on Web.\n\n'
+      'A short reason for this is that, when a normal URL is embedded in the iframe, you do not actually own that content so you cant call your custom functions\n'
+      '(read the documentation to find out why).';
+
+  Size get screenSize => MediaQuery.of(context).size;
+  late ModifiedWebViewController webviewController;
+
   @override
   void initState() {
     super.initState();
     src = htmlContent;
+  }
+
+  @override
+  void dispose() {
+    webviewController.dispose();
+    super.dispose();
   }
 
   @override
@@ -61,10 +79,39 @@ class _HomeScreenState extends State<HomeScreen> {
             },
           ),
           IconButton(
-            icon: Icon(Icons.cloud_circle),
+            icon: Icon(Icons.access_alarm),
             onPressed: () {
-              js.context.callMethod('alertMessage', ['Flutter is calling upon JavaScript!']);
-              js.context.callMethod('logger', ['This is some flutter state.']);
+              _setHtml();
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.assessment),
+            onPressed: () {
+              _setHtmlFromAssets();
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.link),
+            onPressed: () {
+              _setUrl();
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.web_rounded),
+            onPressed: () {
+              _setUrlBypass();
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.view_agenda),
+            onPressed: () {
+              _getWebviewContent();
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.calculate),
+            onPressed: () {
+              _callPlatformIndependentJsMethod();
             },
           ),
         ],
@@ -167,11 +214,36 @@ class _HomeScreenState extends State<HomeScreen> {
                           print('$key: Loaded: $src');
                         },
                         isHtml: _isHtml,
+                        initialContent: src,
+                        initialSourceType: _isHtml
+                            ? SourceType.html
+                            : _isMarkdown
+                                ? SourceType.html
+                                : SourceType.url,
                         isMarkdown: _isMarkdown,
                         convertToWidgets: _useWidgets,
                         key: key,
                         widgetsTextSelectable: _isSelectable,
-                        webNavigationDelegate: (_) => _blockNavigation ? WebNavigationDecision.prevent : WebNavigationDecision.navigate,
+                        webNavigationDelegate: (webNavigationRequest) {
+                          debugPrint(webNavigationRequest.content.sourceType.toString());
+                          return _blockNavigation ? WebNavigationDecision.prevent : WebNavigationDecision.navigate;
+                        },
+                        onWebViewCreated: (controller) => webviewController = controller,
+                        onPageStarted: (src) => debugPrint('A new page has started loading: $src\n'),
+                        onPageFinished: (src) => debugPrint('The page has finished loading: $src\n'),
+                        jsContent: const {
+                          EmbeddedJsContent(
+                            js: "function testPlatformIndependentMethod() { console.log('Hi from JS') }",
+                          ),
+                          EmbeddedJsContent(
+                            webJs: "function testPlatformSpecificMethod(msg) { Print('Web callback says: ' + msg) }",
+                            mobileJs: "function testPlatformSpecificMethod(msg) { Print.postMessage('Mobile callback says: ' + msg) }",
+                          ),
+                        },
+                        webSpecificParams: const WebSpecificParams(
+                          printDebugInfo: true,
+                        ),
+
                         crossWindowEvents: [
                           CrossWindowEvent(
                             name: 'Print',
@@ -233,6 +305,109 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
     );
+  }
+
+  void _setUrl() {
+    webviewController.loadContent(
+      'https://flutter.dev',
+      SourceType.url,
+    );
+  }
+
+  void _setUrlBypass() {
+    webviewController.loadContent(
+      'https://news.ycombinator.com/',
+      SourceType.urlBypass,
+    );
+  }
+
+  void _setHtml() {
+    webviewController.loadContent(
+      src,
+      SourceType.html,
+    );
+  }
+
+  void _setHtmlFromAssets() {
+    webviewController.loadContent(
+      'assets/test.html',
+      SourceType.html,
+      fromAssets: true,
+    );
+  }
+
+  Future<void> _goForward() async {
+    if (await webviewController.canGoForward()) {
+      await webviewController.goForward();
+      showSnackBar('Did go forward', context);
+    } else {
+      showSnackBar('Cannot go forward', context);
+    }
+  }
+
+  Future<void> _goBack() async {
+    if (await webviewController.canGoBack()) {
+      await webviewController.goBack();
+      showSnackBar('Did go back', context);
+    } else {
+      showSnackBar('Cannot go back', context);
+    }
+  }
+
+  void _reload() {
+    webviewController.reload();
+  }
+
+  void _toggleIgnore() {
+    final ignoring = webviewController.ignoresAllGestures;
+    webviewController.setIgnoreAllGestures(!ignoring);
+    showSnackBar('Ignore events = ${!ignoring}', context);
+  }
+
+  Future<void> _evalRawJsInGlobalContext() async {
+    try {
+      final result = await webviewController.evalRawJavascript(
+        '2+2',
+        inGlobalContext: true,
+      );
+      showSnackBar('The result is $result', context);
+    } catch (e) {
+      showAlertDialog(
+        executeJsErrorMessage,
+        context,
+      );
+    }
+  }
+
+  Future<void> _callPlatformIndependentJsMethod() async {
+    try {
+      await webviewController.callJsMethod('testPlatformIndependentMethod', []);
+    } catch (e) {
+      showAlertDialog(
+        executeJsErrorMessage,
+        context,
+      );
+    }
+  }
+
+  Future<void> _callPlatformSpecificJsMethod() async {
+    try {
+      await webviewController.callJsMethod('testPlatformSpecificMethod', ['Hi']);
+    } catch (e) {
+      showAlertDialog(
+        executeJsErrorMessage,
+        context,
+      );
+    }
+  }
+
+  Future<void> _getWebviewContent() async {
+    try {
+      final content = await webviewController.getContent();
+      showAlertDialog(content.source, context);
+    } catch (e) {
+      showAlertDialog('Failed to execute this task.', context);
+    }
   }
 
   String get htmlContent => """<!DOCTYPE html>
